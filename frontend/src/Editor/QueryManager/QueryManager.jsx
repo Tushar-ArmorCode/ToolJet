@@ -7,7 +7,7 @@ import { defaultSources } from './constants';
 import { useDataSources, useGlobalDataSources, useLoadingDataSources } from '@/_stores/dataSourcesStore';
 import { useQueryToBeRun, useSelectedQuery, useQueryPanelActions } from '@/_stores/queryPanelStore';
 
-const QueryManager = ({ mode, appId, darkMode, apps, allComponents, appDefinition, editorRef }) => {
+const QueryManager = ({ mode, appId, darkMode, apps, allComponents, appDefinition, editorRef, dataQueriesChanged }) => {
   const loadingDataSources = useLoadingDataSources();
   const dataSources = useDataSources();
   const globalDataSources = useGlobalDataSources();
@@ -53,7 +53,13 @@ const QueryManager = ({ mode, appId, darkMode, apps, allComponents, appDefinitio
         'd-none': loadingDataSources,
       })}
     >
-      <QueryManagerHeader darkMode={darkMode} options={options} editorRef={editorRef} appId={appId} />
+      <QueryManagerHeader
+        darkMode={darkMode}
+        options={options}
+        editorRef={editorRef}
+        appId={appId}
+        dataQueriesChanged={dataQueriesChanged}
+      />
       <QueryManagerBody
         darkMode={darkMode}
         options={options}

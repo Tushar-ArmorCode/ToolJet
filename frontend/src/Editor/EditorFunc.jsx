@@ -51,7 +51,7 @@ import '@/_styles/editor/react-select-search.scss';
 import { withRouter } from '@/_hoc/withRouter';
 import { ReleasedVersionError } from './AppVersionsManager/ReleasedVersionError';
 import { useDataSourcesStore } from '@/_stores/dataSourcesStore';
-import { useDataQueries, useDataQueriesStore } from '@/_stores/dataQueriesStore';
+import { useDataQueries, useDataQueriesState, useDataQueriesStore } from '@/_stores/dataQueriesStore';
 import { useAppVersionStore, useAppVersionActions, useAppVersionState } from '@/_stores/appVersionStore';
 import { useQueryPanelStore } from '@/_stores/queryPanelStore';
 import { useCurrentStateStore, useCurrentState } from '@/_stores/currentStateStore';
@@ -84,6 +84,8 @@ const EditorComponent = (props) => {
 
   const { setAppVersions } = useAppVersionActions();
   const { isVersionReleased, editingVersion, releasedVersionId } = useAppVersionState();
+
+  const { queriesUpdateHashRef } = useDataQueriesState();
 
   const {
     appDefinition,
@@ -149,6 +151,7 @@ const EditorComponent = (props) => {
   const selectionRef = useRef(null);
 
   const prevAppDefinition = useRef(appDefinition);
+  // const prevDataQueriesRef = useRef(JSON.stringify(dataQueries));
 
   useLayoutEffect(() => {
     resetAllStores();
@@ -288,6 +291,14 @@ const EditorComponent = (props) => {
     });
   };
 
+  useEffect(() => {
+    if (!queriesUpdateHashRef) return;
+
+    console.log('----arpit:::: [yoyo] ', { queriesUpdateHashRef, currentSessionId });
+
+    dataQueriesChanged(true, queriesUpdateHashRef, currentSessionId);
+  }, [queriesUpdateHashRef]);
+
   /**
    * Initializes real-time saving of application definitions if multiplayer editing is enabled.
    * Monitors changes in the 'appDef' property of the provided 'ymap' object and triggers a real-time save
@@ -300,36 +311,53 @@ const EditorComponent = (props) => {
     // Observe changes in the 'appDef' property of the 'ymap' object
     props.ymap?.observe(() => {
       const ymapUpdates = props.ymap?.get('appDef');
+      const ymapQueryUpdates = props.ymap?.get('dataQueriesUpdates');
+
+      // console.log('----arpit:: ymp dq', { ymapQueryUpdates, queriesUpdateHashRef, currentSessionId });
+
+      realtimeSaveDataQueries(ymapQueryUpdates);
+
+      //check if the updates from the same
 
       // Check if there is a new session and if others are on the same version and page
-      if (!ymapUpdates.currentSessionId || ymapUpdates.currentSessionId === currentSessionId) return;
+      if (ymapUpdates) {
+        if (!ymapUpdates.currentSessionId || ymapUpdates.currentSessionId === currentSessionId) return;
 
-      // Check if others are on the same version and page
-      if (!ymapUpdates.areOthersOnSameVersionAndPage) return;
+        // Check if others are on the same version and page
+        if (!ymapUpdates.areOthersOnSameVersionAndPage) return;
 
-      // Check if the new application definition is different from the current one
-      if (isEqual(appDefinition, ymapUpdates.newDefinition)) return;
+        // Check if the new application definition is different from the current one
+        if (isEqual(appDefinition, ymapUpdates.newDefinition)) return;
 
-      // Trigger real-time save with specific options
-      realtimeSave(props.ymap?.get('appDef').newDefinition, {
-        skipAutoSave: true,
-        skipYmapUpdate: true,
-        currentSessionId: ymapUpdates.currentSessionId,
-      });
-    });
-  };
-
-  const initEventListeners = () => {
-    socket?.addEventListener('message', (event) => {
-      const data = event.data.replace(/^"(.+(?="$))"$/, '$1');
-      if (data === 'versionReleased') fetchApp();
-      else if (data === 'dataQueriesChanged') {
-        fetchDataQueries(editingVersion?.id);
-      } else if (data === 'dataSourcesChanged') {
-        fetchDataSources(editingVersion?.id);
+        // Trigger real-time save with specific options
+        realtimeSave(props.ymap?.get('appDef').newDefinition, {
+          skipAutoSave: true,
+          skipYmapUpdate: true,
+          currentSessionId: ymapUpdates.currentSessionId,
+        });
       }
+
+      // if (ymapQueryUpdates) {
+
+      //   // if (!ymapUpdates.currentSessionId || ymapUpdates.currentSessionId === currentSessionId) return;
+
+      //   // // Check if others are on the same version and page
+      //   // if (!ymapUpdates.areOthersOnSameVersionAndPage) return;
+      // }
     });
   };
+
+  // const initEventListeners = () => {
+  //   socket?.addEventListener('message', (event) => {
+  //     const data = event.data.replace(/^"(.+(?="$))"$/, '$1');
+  //     if (data === 'versionReleased') fetchApp();
+  //     else if (data === 'dataQueriesChanged') {
+  //       fetchDataQueries(editingVersion?.id);
+  //     } else if (data === 'dataSourcesChanged') {
+  //       fetchDataSources(editingVersion?.id);
+  //     }
+  //   });
+  // };
 
   const $componentDidMount = async () => {
     window.addEventListener('message', handleMessage);
@@ -340,7 +368,7 @@ const EditorComponent = (props) => {
     await fetchOrgEnvironmentVariables();
     initComponentVersioning();
     initRealtimeSave();
-    initEventListeners();
+    // initEventListeners();
     updateEditorState({
       currentSidebarTab: 2,
       selectedComponents: [],
@@ -414,17 +442,56 @@ const EditorComponent = (props) => {
     fetchGlobalDataSources();
   };
 
-  const dataQueriesChanged = () => {
-    if (socket instanceof WebSocket && socket?.readyState === WebSocket.OPEN) {
-      socket?.send(
-        JSON.stringify({
-          event: 'events',
-          data: { message: 'dataQueriesChanged', appId: appId },
-        })
-      );
-    } else {
-      fetchDataQueries(editingVersion?.id);
+  const updateDataQueries = async (ympDataQueries) => {
+    const { queriesUpdateHashRef: hash } = useDataQueriesStore.getState();
+    const { editingVersion: _editingVersion } = useAppVersionStore.getState();
+    const greatestHash = Math.max(hash, ympDataQueries.queriesUpdateHashRef);
+
+    if (_editingVersion?.id === ympDataQueries?.editingVersionId && greatestHash > hash) {
+      console.log('----arpit:: updateDataQueries', {
+        ympDataQueries,
+        currentSessionId,
+        queriesUpdateHashRef,
+        hash,
+        greatestHash,
+        id: _editingVersion?.id,
+      });
+
+      // useAppVersionStore.getState().actions.updateQueriesUpdateHashRef(greatestHash);
+
+      // fetchDataQueries(_editingVersion?.id, true);
+      await fetchDataQueries(_editingVersion?.id, true);
     }
+
+    // queriesUpdateHashRef and hash are Date.now() values, we need to check which one is the latest
+  };
+
+  const dataQueriesChanged = (isRealtimeUpdate = false, updateHash = null, activeSessionId = undefined) => {
+    if (config.ENABLE_MULTIPLAYER_EDITING && currentSessionId) {
+      props.ymap?.set('dataQueriesUpdates', {
+        queriesUpdateHashRef: updateHash,
+        editingVersionId: editingVersion?.id,
+        currentSessionId: activeSessionId,
+      });
+    }
+
+    // if (isRealtimeUpdate) {
+    //   props.ymap?.set('dataQueriesUpdates', {
+    //     queriesUpdateHashRef: updateHash,
+    //     currentSessionId: currentSessionId,
+    //   });
+    // }
+
+    // if (socket instanceof WebSocket && socket?.readyState === WebSocket.OPEN) {
+    //   socket?.send(
+    //     JSON.stringify({
+    //       event: 'events',
+    //       data: { message: 'dataQueriesChanged', appId: appId },
+    //     })
+    //   );
+    // } else {
+    //   fetchDataQueries(editingVersion?.id);
+    // }
   };
 
   const switchSidebarTab = (tabIndex) => {
@@ -944,6 +1011,7 @@ const EditorComponent = (props) => {
   };
 
   const realtimeSave = debounce(appDefinitionChanged, 500);
+  const realtimeSaveDataQueries = debounce(updateDataQueries, 500);
   const autoSave = debounce(saveEditingVersion, 200);
 
   function handlePaths(prevPatch, path = [], appJSON) {

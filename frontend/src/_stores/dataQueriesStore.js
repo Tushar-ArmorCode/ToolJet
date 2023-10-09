@@ -23,6 +23,7 @@ const initialState = {
   isUpdatingQueryInProcess: false,
   /** When a 'Create Data Query' operation is in progress, rename/update API calls are cached in the variable. */
   queuedActions: {},
+  queriesUpdateHashRef: null,
 };
 
 export const useDataQueriesStore = create(
@@ -191,6 +192,8 @@ export const useDataQueriesStore = create(
            * */
           set((state) => ({
             dataQueries: state.dataQueries.map((query) => (query.id === id ? { ...query, name: newName } : query)),
+            //convert date time to number as we can compare number easily
+            queriesUpdateHashRef: Date.now(),
           }));
           dataqueryService
             .update(id, newName)
@@ -353,3 +356,5 @@ export const useDataQueries = () => useDataQueriesStore((state) => state.dataQue
 export const useDataQueriesActions = () => useDataQueriesStore((state) => state.actions);
 export const useQueryCreationLoading = () => useDataQueriesStore((state) => !!state.creatingQueryInProcessId);
 export const useQueryUpdationLoading = () => useDataQueriesStore((state) => state.isUpdatingQueryInProcess);
+
+export const useDataQueriesState = () => useDataQueriesStore((state) => state);

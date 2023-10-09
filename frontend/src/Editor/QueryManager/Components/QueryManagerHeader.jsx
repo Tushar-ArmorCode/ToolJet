@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { previewQuery, checkExistingQueryName, runQuery } from '@/_helpers/appUtils';
 
-import { useDataQueriesActions } from '@/_stores/dataQueriesStore';
+import { useDataQueriesActions, useDataQueriesState } from '@/_stores/dataQueriesStore';
 import {
   useSelectedQuery,
   useSelectedDataSource,
@@ -21,8 +21,9 @@ import { shallow } from 'zustand/shallow';
 import { Tooltip } from 'react-tooltip';
 import { Button } from 'react-bootstrap';
 
-export const QueryManagerHeader = forwardRef(({ darkMode, options, editorRef }, ref) => {
+export const QueryManagerHeader = forwardRef(({ darkMode, options, editorRef, dataQueriesChanged }, ref) => {
   const { renameQuery } = useDataQueriesActions();
+  const { queriesUpdateHashRef } = useDataQueriesState();
   const selectedQuery = useSelectedQuery();
   const selectedDataSource = useSelectedDataSource();
   const [showCreateQuery, setShowCreateQuery] = useShowCreateQuery();
@@ -43,6 +44,12 @@ export const QueryManagerHeader = forwardRef(({ darkMode, options, editorRef }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedQuery?.name]);
 
+  // useEffect(() => {
+  //   console.log('----arpit:::: [queriesUpdateHashRef] ', { queriesUpdateHashRef });
+
+  //   dataQueriesChanged(true, queriesUpdateHashRef);
+  // }, [queriesUpdateHashRef]);
+
   const isInDraft = selectedQuery?.status === 'draft';
 
   const executeQueryNameUpdation = (newName) => {
@@ -59,6 +66,8 @@ export const QueryManagerHeader = forwardRef(({ darkMode, options, editorRef }, 
 
     if (newName) {
       renameQuery(selectedQuery?.id, newName, editorRef);
+      // console.log('---this is arpit');
+      // dataQueriesChanged(true);
       return true;
     }
   };

@@ -139,10 +139,10 @@ const QueryPanel = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded]);
 
-  const updateDataQueries = useCallback(() => {
-    dataQueriesChanged();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // const updateDataQueries = useCallback(() => {
+  //   dataQueriesChanged();
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, []);
 
   return (
     <>
@@ -199,7 +199,7 @@ const QueryPanel = ({
                 <QueryManager
                   toggleQueryEditor={toggleQueryEditor}
                   dataQueries={dataQueries}
-                  dataQueriesChanged={updateDataQueries}
+                  dataQueriesChanged={dataQueriesChanged}
                   appId={appId}
                   darkMode={darkMode}
                   allComponents={allComponents}
